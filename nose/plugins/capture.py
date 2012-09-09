@@ -7,6 +7,8 @@ the options ``-s`` or ``--nocapture``.
 :Options:
   ``--nocapture``
     Don't capture stdout (any stdout output will be printed immediately)
+  ``--capture-tee``
+    Capture stdout, but also print everything immediately
 
 """
 import logging
@@ -19,6 +21,8 @@ from StringIO import StringIO
 
 log = logging.getLogger(__name__)
 
+
+
 class Capture(Plugin):
     """
     Output capture plugin. Enabled by default. Disable with ``-s`` or
@@ -26,13 +30,39 @@ class Capture(Plugin):
     appending any output captured to the error or failure output,
     should the test fail or raise an error.
     """
+    
+    class CompositeObject(object):
+        '''
+        Proxy object to distribute all method calls to multiple objects.
+        '''
+        class Caller(object):
+            def __init__(self, comp_obj, method_name):
+                self.comp_obj = comp_obj
+                self.method_name = method_name
+                
+            def __call__(self, *args, **kwargs):
+                ret = None
+                for obj in self.comp_obj.objects:
+                    method = getattr(obj, self.method_name)
+                    ret = method(*args, **kwargs)
+                return ret
+        
+        def __init__(self, objects):
+            self.objects = objects
+            
+        def __getattr__(self, attr):
+            return self.Caller(self, attr)
+        
+
     enabled = True
+    capture_tee = False
     env_opt = 'NOSE_NOCAPTURE'
     name = 'capture'
     score = 500
 
     def __init__(self):
-        self.stdout = []
+        self.stdout_stack = []
+        self.orig_stdout = sys.stdout
         self._buf = None
 
     def options(self, parser, env):
@@ -43,6 +73,10 @@ class Capture(Plugin):
             default=not env.get(self.env_opt), dest="capture",
             help="Don't capture stdout (any stdout output "
             "will be printed immediately) [NOSE_NOCAPTURE]")
+        parser.add_option(
+            "--capture-tee", action="store_true",
+            default=False, dest="capture_tee",
+            help="Capture stdout, but also print everything immediately. Default false.")
 
     def configure(self, options, conf):
         """Configure plugin. Plugin is enabled by default.
@@ -50,6 +84,8 @@ class Capture(Plugin):
         self.conf = conf
         if not options.capture:
             self.enabled = False
+        if options.capture_tee:
+            self.capture_tee = True
 
     def afterTest(self, test):
         """Clear capture buffer.
@@ -107,18 +143,22 @@ class Capture(Plugin):
                            output, ln(u'>> end captured stdout <<')])
 
     def start(self):
-        self.stdout.append(sys.stdout)
+        self.stdout_stack.append(sys.stdout)
         self._buf = StringIO()
-        sys.stdout = self._buf
+        
+        if self.capture_tee:
+            sys.stdout = self.CompositeObject([self.orig_stdout, self._buf])
+        else:
+            sys.stdout = self._buf
 
     def end(self):
-        if self.stdout:
-            sys.stdout = self.stdout.pop()
+        if self.stdout_stack:
+            sys.stdout = self.stdout_stack.pop()
 
     def finalize(self, result):
         """Restore stdout.
         """
-        while self.stdout:
+        while self.stdout_stack:
             self.end()
 
     def _get_buffer(self):

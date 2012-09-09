@@ -10,14 +10,18 @@ from nose.plugins.errorclass import ErrorClass, ErrorClassPlugin
 
 
 try:
-    # 2.7
-    from unittest.case import SkipTest
+    # pre-2.7 with unittest2
+    from unittest2.case import SkipTest
 except ImportError:
-    # 2.6 and below
-    class SkipTest(Exception):
-        """Raise this exception to mark a test as skipped.
-        """
-    pass
+    try:
+        # 2.7
+        from unittest.case import SkipTest
+    except ImportError:
+        # 2.6 and below
+        class SkipTest(Exception):
+            """Raise this exception to mark a test as skipped.
+            """
+        pass
 
 
 class Skip(ErrorClassPlugin):

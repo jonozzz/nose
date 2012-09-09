@@ -23,7 +23,7 @@ from nose.selector import defaultSelector, TestAddress
 from nose.util import func_lineno, getpackage, isclass, isgenerator, \
     ispackage, regex_last_key, resolve_name, transplant_func, \
     transplant_class, test_address
-from nose.suite import ContextSuiteFactory, ContextList, LazySuite
+from nose.suite import ContextSuiteFactory, ContextList, ContextSuite
 from nose.pyversion import sort_list, cmp_to_key
 
 
@@ -423,7 +423,7 @@ class TestLoader(unittest.TestLoader):
                         # also know that we're not going to be asked
                         # to load from . and ./some_module.py *as part
                         # of this named test load*
-                        return LazySuite(
+                        return ContextSuite(
                             lambda: self.loadTestsFromDir(path))
                     elif op_isfile(path):
                         return self.loadTestsFromFile(path)

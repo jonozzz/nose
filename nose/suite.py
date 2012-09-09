@@ -193,7 +193,7 @@ class ContextSuite(LazySuite):
 
         return e
 
-    def run(self, result):
+    def run(self, result, blocked=False):
         """Run tests in suite inside of suite fixtures.
         """
         # proxy the result for myself
@@ -204,14 +204,18 @@ class ContextSuite(LazySuite):
             result, orig = self.resultProxy(result, self), result
         else:
             result, orig = result, result
+
         try:
-            self.setUp()
+            if not blocked:
+                self.setUp()
         except KeyboardInterrupt:
             raise
         except:
             self.error_context = 'setup'
-            result.addError(self, self._exc_info())
-            return
+            #result.addError(self, self._exc_info())
+            blocked = True
+            self.was_setup = True
+            #return
         try:
             for test in self._tests:
                 if result.shouldStop:
@@ -220,10 +224,16 @@ class ContextSuite(LazySuite):
                 # each nose.case.Test will create its own result proxy
                 # so the cases need the original result, to avoid proxy
                 # chains
-                test(orig)
+                test(orig, blocked)
+#                if type(test) == LazySuite:
+#                    test(orig)
+#                else:
+#                    test(orig, blocked)
         finally:
             self.has_run = True
             try:
+                #if not blocked:
+                #    self.tearDown()
                 self.tearDown()
             except KeyboardInterrupt:
                 raise

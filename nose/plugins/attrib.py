@@ -104,7 +104,7 @@ import inspect
 import logging
 import os
 import sys
-from inspect import isfunction
+from inspect import isfunction, isclass
 from nose.plugins.base import Plugin
 from nose.util import tolist
 

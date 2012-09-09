@@ -112,7 +112,7 @@ class Test(unittest.TestCase):
     context = property(_context, None, None,
                       """Get the context object of this test (if any).""")
 
-    def run(self, result):
+    def run(self, result, blocked=False):
         """Modified run for the test wrapper.
 
         From here we don't call result.startTest or stopTest or
@@ -130,7 +130,7 @@ class Test(unittest.TestCase):
         try:
             try:
                 self.beforeTest(result)
-                self.runTest(result)
+                self.runTest(result, blocked)
             except KeyboardInterrupt:
                 raise
             except:
@@ -139,7 +139,7 @@ class Test(unittest.TestCase):
         finally:
             self.afterTest(result)
 
-    def runTest(self, result):
+    def runTest(self, result, blocked=False):
         """Run the test. Plugins may alter the test by returning a
         value from prepareTestCase. The value must be callable and
         must accept one argument, the result instance.
@@ -148,6 +148,11 @@ class Test(unittest.TestCase):
         plug_test = self.config.plugins.prepareTestCase(self)
         if plug_test is not None:
             test = plug_test
+        if blocked:
+            result.startTest(self)
+            err = self.exc_info()
+            result.addError(self, err)
+            return
         test(result)
 
     def shortDescription(self):

@@ -280,11 +280,11 @@ class PluginManager(object):
         """
         log.debug("Configuring plugins")
         self.config = config
+        self.sort()
         cfg = PluginProxy('configure', self._plugins)
         cfg(options, config)
         enabled = [plug for plug in self._plugins if plug.enabled]
         self.plugins = enabled
-        self.sort()
         log.debug("Plugins enabled: %s", enabled)
 
     def loadPlugins(self):

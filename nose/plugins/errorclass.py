@@ -140,9 +140,9 @@ class ErrorClassPlugin(Plugin):
         err_cls, a, b = err
         if not isclass(err_cls):
             return
-        classes = [e[0] for e in self.errorClasses]
-        if filter(lambda c: issubclass(err_cls, c), classes):
-            return True
+        #classes = [e[0] for e in self.errorClasses]
+        #if filter(lambda c: issubclass(err_cls, c), classes):
+        #    return True
 
     def prepareTestResult(self, result):
         if not hasattr(result, 'errorClasses'):
