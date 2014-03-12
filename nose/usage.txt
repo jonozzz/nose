@@ -17,6 +17,11 @@ may use the assert keyword or raise AssertionErrors to indicate test
 failure. TestCase subclasses may do the same or use the various
 TestCase methods available.
 
+**It is important to note that the default behavior of nose is to
+not include tests from files which are executable.**  To include
+tests from such files, remove their executable bit or use
+the --exe flag (see 'Options' section below).
+
 Selecting Tests
 ---------------
 
@@ -60,7 +65,7 @@ Configuration
 In addition to passing command-line options, you may also put
 configuration options in your project's *setup.cfg* file, or a .noserc
 or nose.cfg file in your home directory. In any of these standard
-.ini-style config files, you put your nosetests configuration in a
+ini-style config files, you put your nosetests configuration in a
 ``[nosetests]`` section. Options are the same as on the command line,
 with the -- prefix removed. For options that are simple switches, you
 must supply a value:

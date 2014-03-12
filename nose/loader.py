@@ -93,7 +93,10 @@ class TestLoader(unittest.TestLoader):
         if config.addPaths:
             add_path(workingDir, config)        
         self.suiteClass = ContextSuiteFactory(config=config)
-        unittest.TestLoader.__init__(self)     
+
+        self._visitedPaths = set([])
+
+        unittest.TestLoader.__init__(self)
 
     def getTestCaseNames(self, testCaseClass):
         """Override to select with selector, unless
@@ -101,7 +104,7 @@ class TestLoader(unittest.TestLoader):
         """
         if self.config.getTestCaseNamesCompat:
             return unittest.TestLoader.getTestCaseNames(self, testCaseClass)
-        
+
         def wanted(attr, cls=testCaseClass, sel=self.selector):
             item = getattr(cls, attr, None)
             if isfunction(item):
@@ -109,17 +112,27 @@ class TestLoader(unittest.TestLoader):
             elif not ismethod(item):
                 return False
             return sel.wantMethod(item)
+
         cases = filter(wanted, dir(testCaseClass))
-        for base in testCaseClass.__bases__:
-            for case in self.getTestCaseNames(base):
-                if case not in cases:
-                    cases.append(case)
+
         # add runTest if nothing else picked
         if not cases and hasattr(testCaseClass, 'runTest'):
             cases = ['runTest']
         if self.sortTestMethodsUsing:
             sort_list(cases, cmp_to_key(self.sortTestMethodsUsing))
         return cases
+
+    def _haveVisited(self, path):
+        # For cases where path is None, we always pretend we haven't visited
+        # them.
+        if path is None:
+            return False
+
+        return path in self._visitedPaths
+
+    def _addVisitedPath(self, path):
+        if path is not None:
+            self._visitedPaths.add(path)
 
     def loadTestsFromDir(self, path):
         """Load tests from the directory at path. This is a generator
@@ -155,7 +168,14 @@ class TestLoader(unittest.TestLoader):
                         continue
                     wanted = self.selector.wantDirectory(entry_path)
             is_package = ispackage(entry_path)
-            if wanted:
+
+            # Python 3.3 now implements PEP 420: Implicit Namespace Packages.
+            # As a result, it's now possible that parent paths that have a
+            # segment with the same basename as our package ends up
+            # in module.__path__.  So we have to keep track of what we've
+            # visited, and not-revisit them again.
+            if wanted and not self._haveVisited(entry_path):
+                self._addVisitedPath(entry_path)
                 if is_file:
                     plugins.beforeContext()
                     if entry.endswith('.py'):
@@ -363,7 +383,8 @@ class TestLoader(unittest.TestLoader):
                 name = addr.call
             parent, obj = self.resolve(name, module)
             if (isclass(parent)
-                and getattr(parent, '__module__', None) != module.__name__):
+                and getattr(parent, '__module__', None) != module.__name__
+                and not isinstance(obj, Failure)):
                 parent = transplant_class(parent, module.__name__)
                 obj = getattr(parent, obj.__name__)
             log.debug("parent %s obj %s module %s", parent, obj, module)

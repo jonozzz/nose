@@ -23,40 +23,6 @@ mktest.__test__ = False
 
 time_taken = re.compile(r'\d\.\d\d')
 
-class TestEscaping(unittest.TestCase):
-
-    def setUp(self):
-        self.x = Xunit()
-
-    def test_all(self):
-        eq_(self.x._quoteattr(
-            '''<baz src="http://foo?f=1&b=2" quote="inix hubris 'maximus'?" />'''),
-            ('"&lt;baz src=&quot;http://foo?f=1&amp;b=2&quot; '
-                'quote=&quot;inix hubris \'maximus\'?&quot; /&gt;"'))
-
-    def test_unicode_is_utf8_by_default(self):
-        if not UNICODE_STRINGS:
-            eq_(self.x._quoteattr(u'Ivan Krsti\u0107'),
-                '"Ivan Krsti\xc4\x87"')
-
-    def test_unicode_custom_utf16_madness(self):
-        self.x.encoding = 'utf-16'
-        utf16 = self.x._quoteattr(u'Ivan Krsti\u0107')[1:-1]
-
-        if UNICODE_STRINGS:
-	    # If all internal strings are unicode, then _quoteattr shouldn't
-	    # have changed anything.
-            eq_(utf16, u'Ivan Krsti\u0107')
-        else:
-            # to avoid big/little endian bytes, assert that we can put it back:
-            eq_(utf16.decode('utf16'), u'Ivan Krsti\u0107')
-
-    def test_control_characters(self):
-        # quoting of \n, \r varies in diff. python versions
-        n = saxutils.quoteattr('\n')[1:-1]
-        r = saxutils.quoteattr('\r')[1:-1]
-        eq_(self.x._quoteattr('foo\n\b\f\r'), '"foo%s??%s"' % (n, r))
-        eq_(escape_cdata('foo\n\b\f\r'), 'foo\n??\r')
 
 class TestSplitId(unittest.TestCase):
 
@@ -131,12 +97,13 @@ class TestXMLOutputWithXML(unittest.TestCase):
             pass
         self.x.report(DummyStream())
         f = open(self.xmlfile, 'rb')
-        return f.read()
+        data = f.read()
         f.close()
+        return data
 
     def test_addFailure(self):
         test = mktest()
-        self.x.startTest(test)
+        self.x.beforeTest(test)
         try:
             raise AssertionError("one is not 'equal' to two")
         except AssertionError:
@@ -203,7 +170,7 @@ class TestXMLOutputWithXML(unittest.TestCase):
 
     def test_addError(self):
         test = mktest()
-        self.x.startTest(test)
+        self.x.beforeTest(test)
         try:
             raise RuntimeError("some error happened")
         except RuntimeError:
@@ -246,7 +213,7 @@ class TestXMLOutputWithXML(unittest.TestCase):
     def test_non_utf8_error(self):
         # See http://code.google.com/p/python-nose/issues/detail?id=395
         test = mktest()
-        self.x.startTest(test)
+        self.x.beforeTest(test)
         try:
             raise RuntimeError(chr(128)) # cannot encode as utf8 
         except RuntimeError:
@@ -275,6 +242,8 @@ class TestXMLOutputWithXML(unittest.TestCase):
         except RuntimeError:
             some_err = sys.exc_info()
 
+        self.x.startContext(None)
+
         # call addError without startTest
         # which can happen if setup() raises an error
         self.x.addError(test, some_err)
@@ -295,7 +264,7 @@ class TestXMLOutputWithXML(unittest.TestCase):
 
     def test_addSuccess(self):
         test = mktest()
-        self.x.startTest(test)
+        self.x.beforeTest(test)
         self.x.addSuccess(test, (None,None,None))
 
         result = self.get_xml_report()

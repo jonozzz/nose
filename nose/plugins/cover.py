@@ -5,7 +5,7 @@ imported after the start of the test run, excluding modules that match
 testMatch. If you want to include those modules too, use the ``--cover-tests``
 switch, or set the NOSE_COVER_TESTS environment variable to a true value. To
 restrict the coverage report to modules from a particular package or packages,
-use the ``--cover-packages`` switch or the NOSE_COVER_PACKAGES environment
+use the ``--cover-package`` switch or the NOSE_COVER_PACKAGE environment
 variable.
 
 .. _coverage: http://www.nedbatchelder.com/code/modules/coverage.html
@@ -56,7 +56,7 @@ class Coverage(Plugin):
         parser.add_option("--cover-min-percentage", action="store",
                           dest="cover_min_percentage",
                           default=env.get('NOSE_COVER_MIN_PERCENTAGE'),
-                          help="Minimum percentage of coverage for tests"
+                          help="Minimum percentage of coverage for tests "
                           "to pass [NOSE_COVER_MIN_PERCENTAGE]")
         parser.add_option("--cover-inclusive", action="store_true",
                           dest="cover_inclusive",
@@ -104,6 +104,8 @@ class Coverage(Plugin):
         if self.enabled:
             try:
                 import coverage
+                if not hasattr(coverage, 'coverage'):
+                    raise ImportError("Unable to import coverage module")
             except ImportError:
                 log.error("Coverage not available: "
                           "unable to import coverage module")
@@ -114,7 +116,11 @@ class Coverage(Plugin):
         self.coverTests = options.cover_tests
         self.coverPackages = []
         if options.cover_packages:
-            for pkgs in [tolist(x) for x in options.cover_packages]:
+            if isinstance(options.cover_packages, (list, tuple)):
+                cover_packages = options.cover_packages
+            else:
+                cover_packages = [options.cover_packages]
+            for pkgs in [tolist(x) for x in cover_packages]:
                 self.coverPackages.extend(pkgs)
         self.coverInclusive = options.cover_inclusive
         if self.coverPackages:
@@ -134,7 +140,8 @@ class Coverage(Plugin):
         if self.enabled:
             self.status['active'] = True
             self.coverInstance = coverage.coverage(auto_data=False,
-                branch=self.coverBranches, data_suffix=None)
+                branch=self.coverBranches, data_suffix=None,
+                source=self.coverPackages)
 
     def begin(self):
         """
@@ -163,18 +170,36 @@ class Coverage(Plugin):
                     if self.wantModuleCoverage(name, module)]
         log.debug("Coverage report will cover modules: %s", modules)
         self.coverInstance.report(modules, file=stream)
+
+        import coverage
         if self.coverHtmlDir:
             log.debug("Generating HTML coverage report")
-            self.coverInstance.html_report(modules, self.coverHtmlDir)
+            try:
+                self.coverInstance.html_report(modules, self.coverHtmlDir)
+            except coverage.misc.CoverageException, e:
+                log.warning("Failed to generate HTML report: %s" % str(e))
+
         if self.coverXmlFile:
             log.debug("Generating XML coverage report")
-            self.coverInstance.xml_report(modules, self.coverXmlFile)
+            try:
+                self.coverInstance.xml_report(modules, self.coverXmlFile)
+            except coverage.misc.CoverageException, e:
+                log.warning("Failed to generate XML report: %s" % str(e))
 
         # make sure we have minimum required coverage
         if self.coverMinPercentage:
             f = StringIO.StringIO()
             self.coverInstance.report(modules, file=f)
-            m = re.search(r'-------\s\w+\s+\d+\s+\d+\s+(\d+)%\s+\d*\s{0,1}$', f.getvalue())
+
+            multiPackageRe = (r'-------\s\w+\s+\d+\s+\d+(?:\s+\d+\s+\d+)?'
+                              r'\s+(\d+)%\s+\d*\s{0,1}$')
+            singlePackageRe = (r'-------\s[\w./]+\s+\d+\s+\d+(?:\s+\d+\s+\d+)?'
+                               r'\s+(\d+)%(?:\s+[-\d, ]+)\s{0,1}$')
+
+            m = re.search(multiPackageRe, f.getvalue())
+            if m is None:
+                m = re.search(singlePackageRe, f.getvalue())
+
             if m:
                 percentage = int(m.groups()[0])
                 if percentage < self.coverMinPercentage:

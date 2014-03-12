@@ -77,7 +77,24 @@ class TestLogCapturePlugin(object):
         log.debug("Hello")
         c.end()
         eq_(1, len(c.handler.buffer))
-        eq_("Hello", c.handler.buffer[0].msg)
+        eq_("foobar.something: DEBUG: Hello", c.handler.buffer[0])
+
+    def test_consistent_mutables(self):
+        c = LogCapture()
+        parser = OptionParser()
+        c.addOptions(parser)
+        c.start()
+        log = logging.getLogger("mutable")
+        mutable = { 'value': 1 }
+        log.debug("%r", mutable)
+        repr_1 = repr(mutable)
+        mutable['value'] = 2
+        log.debug("%r", mutable)
+        repr_2 = repr(mutable)
+        c.end()
+        records = c.formatLogRecords()
+        eq_("mutable: DEBUG: %s" % (repr_1,), records[0])
+        eq_("mutable: DEBUG: %s" % (repr_2,), records[1])
 
     def test_loglevel(self):
         c = LogCapture()
@@ -92,7 +109,7 @@ class TestLogCapturePlugin(object):
         c.end()
         records = c.formatLogRecords()
         eq_(1, len(c.handler.buffer))
-        eq_("Goodbye", c.handler.buffer[0].msg)
+        eq_("loglevel: INFO: Goodbye", c.handler.buffer[0])
         eq_("loglevel: INFO: Goodbye", records[0])
 
     def test_clears_all_existing_log_handlers(self):
@@ -134,6 +151,26 @@ class TestLogCapturePlugin(object):
         log = logging.getLogger("foobar.something")
         log.debug("Hello")
         c.end()
+        records = c.formatLogRecords()
+        eq_(1, len(records))
+        eq_("++Hello++", records[0])
+
+    def test_builtin_logging_filtering(self):
+        c = LogCapture()
+        c.logformat = '++%(message)s++'
+        c.start()
+        log = logging.getLogger("foobar.something")
+        filtered = []
+        class filter(object):
+            def filter(record):
+                filtered.append(record)
+                return len(filtered) == 1
+            filter = staticmethod(filter)
+        c.handler.addFilter(filter)
+        log.debug("Hello")
+        log.debug("World")
+        c.end()
+        eq_(2, len(filtered))
         records = c.formatLogRecords()
         eq_(1, len(records))
         eq_("++Hello++", records[0])

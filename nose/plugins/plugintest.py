@@ -27,11 +27,11 @@ Here's a simple example with a do-nothing plugin and a composed suite.
     ...         class TC(unittest.TestCase):
     ...             def runTest(self):
     ...                 raise ValueError("I hate foo")
-    ...         return unittest.TestSuite([TC()])
+    ...         return [TC('runTest')]
     ...
     >>> res = unittest.TestResult()
     >>> case = TestPluginFoo('test_foo')
-    >>> case(res)
+    >>> _ = case(res)
     >>> res.errors
     []
     >>> res.failures
@@ -79,11 +79,11 @@ arguments and reads environment variables.
     ...         class TC(unittest.TestCase):
     ...             def runTest(self):
     ...                 raise ValueError("I hate fancy stuff")
-    ...         return unittest.TestSuite([TC()])
+    ...         return [TC('runTest')]
     ...
     >>> res = unittest.TestResult()
     >>> case = TestFancyOutputter('test_fancy_output')
-    >>> case(res)
+    >>> _ = case(res)
     >>> res.errors
     []
     >>> res.failures
