@@ -41,6 +41,7 @@ class TextTestResult(_TextTestResult):
         if config is None:
             config = Config()
         self.config = config
+        self.blocked = []
         _TextTestResult.__init__(self, stream, descriptions, verbosity)
 
     def addSkip(self, test, reason):
@@ -50,6 +51,34 @@ class TextTestResult(_TextTestResult):
             storage, label, isfail = self.errorClasses[SkipTest]
             storage.append((test, reason))
             self.printLabel(label, (SkipTest, reason, None))
+
+    def startTest(self, test, context=None):
+        return super(TextTestResult, self).startTest(test)
+
+    def addBlocked(self, test, err, context):
+        """Overrides normal addBlocked to add support for
+        errorClasses. If the exception is a registered class, the
+        error will be added to the list for that class, not errors.
+        """
+        ec, ev, tb = err
+        try:
+            exc_info = self._exc_info_to_string(err, test)
+        except TypeError:
+            # 2.3 compat
+            exc_info = self._exc_info_to_string(err)
+        for cls, (storage, label, isfail) in self.errorClasses.items():
+            #if 'Skip' in cls.__name__ or 'Skip' in ec.__name__:
+            #    from nose.tools import set_trace
+            #    set_trace()
+            if isclass(ec) and issubclass(ec, cls):
+                if isfail:
+                    test.passed = False
+                storage.append((test, exc_info))
+                self.printLabel(label, err)
+                return
+        self.blocked.append((test, exc_info, context))
+        test.passed = False
+        self.printLabel('BLOCKED')
 
     def addError(self, test, err):
         """Overrides normal addError to add support for
@@ -135,6 +164,8 @@ class TextTestResult(_TextTestResult):
             summary['failures'] = len(self.failures)
         if len(self.errors):
             summary['errors'] = len(self.errors)
+        if len(self.blocked):
+            summary['blocked'] = len(self.blocked)
 
         if not self.wasSuccessful():
             write("FAILED")
@@ -155,7 +186,7 @@ class TextTestResult(_TextTestResult):
         lists that are marked as errors and should cause a run to
         fail.
         """
-        if self.errors or self.failures:
+        if self.errors or self.failures or self.blocked:
             return False
         for cls in self.errorClasses.keys():
             storage, label, isfail = self.errorClasses[cls]

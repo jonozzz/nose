@@ -118,6 +118,21 @@ class ResultProxy(object):
         if hasattr(self.result, "beforeTest"):
             self.result.beforeTest(self.test)
 
+    def addBlocked(self, test, err, context):
+        self.assertMyTest(test)
+        plugins = self.plugins
+        plugin_handled = plugins.handleBlocked(self.test, err, context)
+        if plugin_handled:
+            return
+        # test.passed is set in result, to account for error classes
+        formatted = plugins.formatError(self.test, err)
+        if formatted is not None:
+            err = formatted
+        plugins.addBlocked(self.test, err, context)
+        self.result.addBlocked(self.test, self._prepareErr(err), context)
+        if not self.result.wasSuccessful() and self.config.stopOnError:
+            self.shouldStop = True
+
     def addError(self, test, err):
         self.assertMyTest(test)
         plugins = self.plugins
@@ -164,10 +179,10 @@ class ResultProxy(object):
         self.plugins.addSuccess(self.test)
         self.result.addSuccess(self.test)
 
-    def startTest(self, test):
+    def startTest(self, test, blocking_context=None):
         self.assertMyTest(test)
-        self.plugins.startTest(self.test)
-        self.result.startTest(self.test)
+        self.plugins.startTest(self.test, blocking_context)
+        self.result.startTest(self.test, blocking_context)
 
     def stop(self):
         self.result.stop()

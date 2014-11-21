@@ -15,7 +15,7 @@ import unittest
 from nose.case import Test
 from nose.config import Config
 from nose.proxy import ResultProxyFactory
-from nose.util import isclass, resolve_name, try_run
+from nose.util import isclass, resolve_name, try_run, test_address
 
 if sys.platform == 'cli':
     if sys.version_info[:2] < (2, 6):
@@ -65,6 +65,15 @@ class LazySuite(unittest.TestSuite):
 
     def addTest(self, test):
         self._precache.append(test)
+
+    def count(self):
+        n = 0
+        for test in self._precache:
+            if isinstance(test, Test):
+                n += 1
+            else:
+                n += test.count()
+        return n
 
     # added to bypass run changes in 2.7's unittest
     def run(self, result):
@@ -163,10 +172,11 @@ class ContextSuite(LazySuite):
     __str__ = __repr__
 
     def id(self):
-        if self.error_context:
-            return '%s:%s' % (repr(self), self.error_context)
-        else:
-            return repr(self)
+        return '.'.join([x for x in test_address(self.context)[1:] if x])
+        #if self.error_context:
+        #    return '%s:%s' % (repr(self), self.error_context)
+        #else:
+        #    return repr(self)
 
     def __hash__(self):
         return object.__hash__(self)
@@ -193,7 +203,7 @@ class ContextSuite(LazySuite):
 
         return e
 
-    def run(self, result, blocked=False):
+    def run(self, result, blocking_context=None):
         """Run tests in suite inside of suite fixtures.
         """
         # proxy the result for myself
@@ -206,16 +216,14 @@ class ContextSuite(LazySuite):
             result, orig = result, result
 
         try:
-            if not blocked:
+            if self.count() and not blocking_context:
                 self.setUp()
         except KeyboardInterrupt:
             raise
         except:
             self.error_context = 'setup'
-            #result.addError(self, self._exc_info())
-            blocked = True
+            blocking_context = self
             self.was_setup = True
-            #return
         try:
             for test in self._tests:
                 if result.shouldStop:
@@ -224,16 +232,10 @@ class ContextSuite(LazySuite):
                 # each nose.case.Test will create its own result proxy
                 # so the cases need the original result, to avoid proxy
                 # chains
-                test(orig, blocked)
-#                if type(test) == LazySuite:
-#                    test(orig)
-#                else:
-#                    test(orig, blocked)
+                test(orig, blocking_context)
         finally:
             self.has_run = True
             try:
-                #if not blocked:
-                #    self.tearDown()
                 self.tearDown()
             except KeyboardInterrupt:
                 raise

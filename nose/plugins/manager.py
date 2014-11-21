@@ -164,6 +164,9 @@ class PluginProxy(object):
         """Call all plugins, returning the first non-None result.
         """
         for p, meth in self.plugins:
+            # Unfortunate backward compatibility :(
+            if meth.func_code.co_argcount - 1 != len(arg):
+                arg = arg[:meth.func_code.co_argcount - 1]
             result = meth(*arg, **kw)
             if result is not None:
                 return result
@@ -351,10 +354,10 @@ class ZeroNinePlugin:
         capt = test.capturedOutput
         self.plugin.addSuccess(test.test, capt)
 
-    def startTest(self, test):
+    def startTest(self, test, blocking_context):
         if not hasattr(self.plugin, 'startTest'):
             return
-        return self.plugin.startTest(test.test)
+        return self.plugin.startTest(test.test, blocking_context)
 
     def stopTest(self, test):
         if not hasattr(self.plugin, 'stopTest'):

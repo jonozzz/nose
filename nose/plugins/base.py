@@ -149,6 +149,21 @@ class IPluginInterface(object):
         pass
     addDeprecated.deprecated = True
 
+    def addBlocked(self, test, err, context):
+        """Called when a test raises an uncaught exception. DO NOT return a
+        value unless you want to stop other plugins from seeing that the
+        test has raised an error.
+
+        :param test: the test case
+        :type test: :class:`nose.case.Test`
+        :param err: sys.exc_info() tuple
+        :type err: 3-tuple
+        :param context: the ContextSuite where the exception was thrown
+        :type err: :class:`nose.suite.ContextSuite` instance
+        """
+        pass
+    addBlocked.changed = True
+
     def addError(self, test, err):
         """Called when a test raises an uncaught exception. DO NOT return a
         value unless you want to stop other plugins from seeing that the
@@ -351,6 +366,20 @@ class IPluginInterface(object):
     formatFailure.chainable = True
     # test arg is not chainable
     formatFailure.static_args = (True, False)
+
+    def handleBlocked(self, test, err, context):
+        """Called on addBlocked. To handle the error yourself and prevent normal
+        error processing, return a true value.
+
+        :param test: the test case
+        :type test: :class:`nose.case.Test`
+        :param err: sys.exc_info() tuple
+        :type err: 3-tuple
+        :param context: the ContextSuite where the exception was thrown
+        :type err: :class:`nose.suite.ContextSuite` instance
+        """
+        pass
+    handleBlocked._new = True
 
     def handleError(self, test, err):
         """Called on addError. To handle the error yourself and prevent normal
@@ -624,7 +653,7 @@ class IPluginInterface(object):
         pass
     startContext._new = True
     
-    def startTest(self, test):
+    def startTest(self, test, blocking_context=None):
         """Called before each test is run. DO NOT return a value unless
         you want to stop other plugins from seeing the test start.
 
