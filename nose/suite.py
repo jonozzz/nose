@@ -69,7 +69,7 @@ class LazySuite(unittest.TestSuite):
     def count(self):
         n = 0
         for test in self._precache:
-            if isinstance(test, Test):
+            if isinstance(test, unittest.TestCase):
                 n += 1
             else:
                 n += test.count()
