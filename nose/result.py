@@ -130,6 +130,9 @@ class TextTestResult(_TextTestResult):
         """Overrides to print all errorClasses errors as well.
         """
         _TextTestResult.printErrors(self)
+        # TODO: Keep blocked tests count.
+        grouped = {ctx: tb for t, tb, ctx in self.blocked}
+        self.printErrorList('BLOCKED', grouped.items())
         for cls in self.errorClasses.keys():
             storage, label, isfail = self.errorClasses[cls]
             if isfail:
