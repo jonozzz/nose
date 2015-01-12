@@ -41,7 +41,8 @@ class TextTestResult(_TextTestResult):
         if config is None:
             config = Config()
         self.config = config
-        self.blocked = []
+        #self.blocked = []
+        self.blocked = {'ERROR': [], 'FAIL': []}
         _TextTestResult.__init__(self, stream, descriptions, verbosity)
 
     def addSkip(self, test, reason):
@@ -61,24 +62,25 @@ class TextTestResult(_TextTestResult):
         error will be added to the list for that class, not errors.
         """
         ec, ev, tb = err
-        try:
-            exc_info = self._exc_info_to_string(err, test)
-        except TypeError:
-            # 2.3 compat
-            exc_info = self._exc_info_to_string(err)
-        for cls, (storage, label, isfail) in self.errorClasses.items():
+        for cls, (_, label, isfail) in self.errorClasses.items():
             #if 'Skip' in cls.__name__ or 'Skip' in ec.__name__:
             #    from nose.tools import set_trace
             #    set_trace()
             if isclass(ec) and issubclass(ec, cls):
                 if isfail:
                     test.passed = False
-                storage.append((test, exc_info))
+                s = self.blocked.setdefault(label, [])
+                s.append((test, err, context))
                 self.printLabel(label, err)
                 return
-        self.blocked.append((test, exc_info, context))
+        if isclass(ec) and issubclass(ec, test.failureException):
+            label = 'FAIL'
+        else:
+            label = 'ERROR'
+        storage = self.blocked.setdefault(label, [])
+        storage.append((test, err, context))
         test.passed = False
-        self.printLabel('BLOCKED')
+        self.printLabel(label)
 
     def addError(self, test, err):
         """Overrides normal addError to add support for
@@ -86,11 +88,6 @@ class TextTestResult(_TextTestResult):
         error will be added to the list for that class, not errors.
         """
         ec, ev, tb = err
-        try:
-            exc_info = self._exc_info_to_string(err, test)
-        except TypeError:
-            # 2.3 compat
-            exc_info = self._exc_info_to_string(err)
         for cls, (storage, label, isfail) in self.errorClasses.items():
             #if 'Skip' in cls.__name__ or 'Skip' in ec.__name__:
             #    from nose.tools import set_trace
@@ -98,12 +95,18 @@ class TextTestResult(_TextTestResult):
             if isclass(ec) and issubclass(ec, cls):
                 if isfail:
                     test.passed = False
-                storage.append((test, exc_info))
+                storage.append((test, err))
                 self.printLabel(label, err)
                 return
-        self.errors.append((test, exc_info))
+        self.errors.append((test, err))
         test.passed = False
-        self.printLabel('ERROR')
+        self.printLabel('ERROR', err)
+
+    def addFailure(self, test, err):
+        """Called when an error has occurred. 'err' is a tuple of values as
+        returned by sys.exc_info()."""
+        self.failures.append((test, err))
+        self.printLabel('FAIL', err)
 
     # override to bypass changes in 2.7
     def getDescription(self, test):
@@ -126,13 +129,27 @@ class TextTestResult(_TextTestResult):
             elif self.dots:
                 stream.write(label[:1])
 
+    def printErrorList(self, flavour, errors):
+        for test, err in errors:
+            try:
+                exc_info = self._exc_info_to_string(err, test)
+            except TypeError:
+                # 2.3 compat
+                exc_info = self._exc_info_to_string(err)
+
+            self.stream.writeln(self.separator1)
+            self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
+            self.stream.writeln(self.separator2)
+            self.stream.writeln("%s" % exc_info)
+
     def printErrors(self):
         """Overrides to print all errorClasses errors as well.
         """
         _TextTestResult.printErrors(self)
         # TODO: Keep blocked tests count.
-        grouped = {ctx: tb for t, tb, ctx in self.blocked}
-        self.printErrorList('BLOCKED', grouped.items())
+        for label, storage in self.blocked.items():
+            grouped = {ctx: tb for t, tb, ctx in storage}
+            self.printErrorList('BLOCKED %s' % label, grouped.items())
         for cls in self.errorClasses.keys():
             storage, label, isfail = self.errorClasses[cls]
             if isfail:
@@ -167,8 +184,9 @@ class TextTestResult(_TextTestResult):
             summary['failures'] = len(self.failures)
         if len(self.errors):
             summary['errors'] = len(self.errors)
-        if len(self.blocked):
-            summary['blocked'] = len(self.blocked)
+        for label, storage in self.blocked.items():
+            if storage:
+                summary[label] = len(storage)
 
         if not self.wasSuccessful():
             write("FAILED")
@@ -189,16 +207,29 @@ class TextTestResult(_TextTestResult):
         lists that are marked as errors and should cause a run to
         fail.
         """
-        if self.errors or self.failures or self.blocked:
-            return False
+        return not self.failCount()
+
+    def failCount(self):
+        count = sum(map(len, [self.errors, self.failures,
+                              self.blocked['ERROR'],
+                              self.blocked['FAIL']]))
         for cls in self.errorClasses.keys():
             storage, label, isfail = self.errorClasses[cls]
+            blocked = self.blocked.get(label, [])
             if not isfail:
                 continue
-            if storage:
-                return False
-        return True
+            count += len(storage + blocked)
+        return count
 
+    def notFailCount(self):
+        count = 0
+        for cls in self.errorClasses.keys():
+            storage, label, isfail = self.errorClasses[cls]
+            blocked = self.blocked.get(label, [])
+            if not isfail:
+                count += len(storage + blocked)
+        return count
+    
     def _addError(self, test, err):
         try:
             exc_info = self._exc_info_to_string(err, test)
@@ -230,5 +261,3 @@ def ln(*arg, **kw):
          "from nose.result in a future release. Please update your imports ",
          DeprecationWarning)
     return _ln(*arg, **kw)
-
-
