@@ -172,11 +172,10 @@ class ContextSuite(LazySuite):
     __str__ = __repr__
 
     def id(self):
-        return '.'.join([x for x in test_address(self.context)[1:] if x])
-        #if self.error_context:
-        #    return '%s:%s' % (repr(self), self.error_context)
-        #else:
-        #    return repr(self)
+        base = '.'.join([x for x in test_address(self.context)[1:] if x])
+        if self.error_context == 'teardown':
+            return '%s:%s' % (base, self.error_context)
+        return base
 
     def __hash__(self):
         return object.__hash__(self)
