@@ -4,6 +4,7 @@ import sys
 import unittest
 import shutil
 
+from nose.exc import SkipTest
 from nose.plugins import PluginTester
 from nose.plugins.cover import Coverage
 
@@ -28,7 +29,7 @@ class TestCoveragePlugin(PluginTester, unittest.TestCase):
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')
@@ -39,7 +40,12 @@ class TestCoveragePlugin(PluginTester, unittest.TestCase):
         super(TestCoveragePlugin, self).setUp()
 
     def runTest(self):
-        self.assertTrue("blah        4      3    25%   1" in self.output)
+        print(self.output)
+        self.assertTrue(
+                # Coverage < 4.0
+                ("blah        4      3    25%   1" in self.output) or
+                # Coverage >= 4.0
+                ("blah.py       4      3    25%   1, 5-6" in self.output))
         self.assertTrue("Ran 1 test in" in self.output)
         # Assert coverage html report exists
         self.assertTrue(os.path.exists(os.path.join(self.cover_html_dir,
@@ -56,7 +62,7 @@ class TestCoverageMinPercentagePlugin(PluginTester, unittest.TestCase):
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')
@@ -81,7 +87,7 @@ class TestCoverageMinPercentageSinglePackagePlugin(
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')
@@ -107,7 +113,7 @@ class TestCoverageMinPercentageSinglePackageWithBranchesPlugin(
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')
@@ -133,7 +139,7 @@ class TestCoverageMinPercentageTOTALPlugin(PluginTester, unittest.TestCase):
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')
@@ -158,7 +164,7 @@ class TestCoverageMinPercentageWithBranchesTOTALPlugin(
 
     def setUp(self):
         if not hasCoverage:
-            raise unittest.SkipTest('coverage not available; skipping')
+            raise SkipTest('coverage not available; skipping')
 
         self.cover_file = os.path.join(os.getcwd(), '.coverage')
         self.cover_html_dir = os.path.join(os.getcwd(), 'cover')

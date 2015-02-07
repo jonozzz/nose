@@ -8,7 +8,7 @@ import re
 import sys
 import types
 import unittest
-from nose.pyversion import ClassType, TypeType, isgenerator
+from nose.pyversion import ClassType, TypeType, isgenerator, ismethod
 
 
 log = logging.getLogger('nose')
@@ -221,11 +221,11 @@ def getfilename(package, relativeTo=None):
     if relativeTo is None:
         relativeTo = os.getcwd()
     path = os.path.join(relativeTo, os.sep.join(package.split('.')))
-    suffixes = ('/__init__.py', '.py')
-    for suffix in suffixes:
-        filename = path + suffix
-        if os.path.exists(filename):
-            return filename
+    if os.path.exists(path + '/__init__.py'):
+        return path
+    filename = path + '.py'
+    if os.path.exists(filename):
+        return filename
     return None
 
 
@@ -447,11 +447,12 @@ def try_run(obj, names):
         if func is not None:
             if type(obj) == types.ModuleType:
                 # py.test compatibility
-                try:
-                    args, varargs, varkw, defaults = inspect.getargspec(func)
-                except TypeError:
+                if isinstance(func, types.FunctionType):
+                    args, varargs, varkw, defaults = \
+                        inspect.getargspec(func)
+                else:
                     # Not a function. If it's callable, call it anyway
-                    if hasattr(func, '__call__'):
+                    if hasattr(func, '__call__') and not inspect.ismethod(func):
                         func = func.__call__
                     try:
                         args, varargs, varkw, defaults = \
