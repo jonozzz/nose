@@ -236,7 +236,7 @@ class ContextSuite(LazySuite):
         finally:
             self.has_run = True
             try:
-                self.tearDown()
+                self.tearDown(result)
             except KeyboardInterrupt:
                 raise
             except:
@@ -330,7 +330,7 @@ class ContextSuite(LazySuite):
             return "test suite"
         return "test suite for %s" % self.context
 
-    def tearDown(self):
+    def tearDown(self, result):
         log.debug('context teardown')
         if not self.was_setup or self.was_torndown:
             log.debug(
@@ -359,11 +359,11 @@ class ContextSuite(LazySuite):
                 setup = factory.was_setup[ancestor]
                 log.debug("%s setup ancestor %s", setup, ancestor)
                 if setup is self:
-                    self.teardownContext(ancestor)
+                    self.teardownContext(ancestor, result)
         else:
             self.teardownContext(context)
 
-    def teardownContext(self, context):
+    def teardownContext(self, context, result):
         log.debug("%s teardown context %s", self, context)
         if self.factory:
             if context in self.factory.was_torndown:
@@ -375,7 +375,13 @@ class ContextSuite(LazySuite):
             names = self.moduleTeardown
             if hasattr(context, '__path__'):
                 names = self.packageTeardown + names
-        try_run(context, names)
+        try:
+            try_run(context, names)
+        except KeyboardInterrupt:
+            raise
+        except:
+            self.error_context = 'teardown'
+            result.addError(self, self._exc_info())
         self.config.plugins.stopContext(context)
 
     # FIXME the wrapping has to move to the factory?
