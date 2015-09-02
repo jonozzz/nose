@@ -9,6 +9,7 @@ from inspect import isfunction
 from nose.config import Config
 from nose.failure import Failure # for backwards compatibility
 from nose.util import resolve_name, test_address, try_run
+from nose.plugins.skip import SkipTest
 
 log = logging.getLogger(__name__)
 
@@ -133,6 +134,8 @@ class Test(unittest.TestCase):
                 self.runTest(result, blocking_context)
             except KeyboardInterrupt:
                 raise
+            except SkipTest:
+                log.debug('%s excluded', self)
             except:
                 err = sys.exc_info()
                 result.addError(self, err)
