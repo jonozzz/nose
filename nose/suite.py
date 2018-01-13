@@ -221,8 +221,9 @@ class ContextSuite(LazySuite):
         except KeyboardInterrupt:
             raise
         except:
+            err  = self.exc_info()
             self.error_context = 'setup'
-            blocking_context = self
+            blocking_context = (self, err)
             self.was_setup = True
         try:
             for test in self._tests:

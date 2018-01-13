@@ -152,8 +152,8 @@ class Test(unittest.TestCase):
         if plug_test is not None:
             test = plug_test
         if blocking_context:
+            blocking_context, err = blocking_context
             result.startTest(self, blocking_context)
-            err = self.exc_info()
             result.addBlocked(self, err, blocking_context)
             return
         test(result)
